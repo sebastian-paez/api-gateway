@@ -9,6 +9,7 @@ from math import floor
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
+from httpx import RequestError
 import redis
 
 from auth import (
@@ -128,10 +129,13 @@ async def proxy(
     async with httpx.AsyncClient() as client:
         for i in range(n):
             idx = (start_idx + i) % n
-            url = instances[idx] + "/data"
+            health_url = instances[idx] + "/health"
+            data_url = instances[idx] + "/data"
             try:
                 start = time.time()
-                resp = await client.get(url, timeout=2.0)
+                resp = await client.get(health_url, timeout=2)
+                resp.raise_for_status()
+                resp = await client.get(data_url)
                 resp.raise_for_status()
                 latency = time.time() - start
                 chosen = idx
@@ -202,12 +206,26 @@ async def get_metrics():
             label = f"{service}-{idx}"
             instances_m[label] = int(cache.get(f"metrics:instance:{label}") or 0)
 
+    # health checks
+    health_m = {}
+    async with httpx.AsyncClient() as client:
+        for svc, urls in services.items():
+            for idx, url in enumerate(urls):
+                label = f"{svc}-{idx}"
+                try:
+                    # quick HEAD or GET to /data, with a short timeout
+                    r = await client.get(f"{url}/health", timeout=0.5)
+                    health_m[label] = r.status_code == 200
+                except RequestError:
+                    health_m[label] = False
+
     return {
         "plans": plans,
         "services": services_m,
         "status": status_m,
         "latency": latency_m,
-        "instances" : instances_m
+        "instances" : instances_m,
+        "health": health_m
     }
 
 @app.post("/metrics/clear")

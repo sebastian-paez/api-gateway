@@ -7,3 +7,7 @@ app = FastAPI()
 async def get_heavy_data():
     await asyncio.sleep(3)
     return {"service": "heavy", "message": "Slow response"}
+
+@app.get("/health")
+async def get_health():
+    return {"status": "available"}

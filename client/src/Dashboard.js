@@ -102,6 +102,18 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white shadow rounded-lg p-6 hover:shadow-lg transition">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">Available Servers</h3>
+            <div className="mb-6 grid grid-cols-2 gap-4">
+              {Object.entries(metrics.health).map(([label, isUp]) => (
+                <div key={label} className="flex items-center space-x-2">
+                  <span
+                    className={`inline-block h-3 w-3 rounded-full ${
+                      isUp ? 'bg-green-500' : 'bg-red-500'
+                    }`}
+                  />
+                  <span className="text-sm font-medium text-gray-700">{label}</span>
+                </div>
+              ))}
+            </div>
             <ServiceChart instances={metrics.instances} />
           </div>
 
