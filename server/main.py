@@ -118,16 +118,33 @@ async def proxy(
 
     # round‑robin
     instances = services[service]
-    idx = cache.incr(f"lb:{service}:counter") % len(instances)
-    target = instances[idx]
+    start_idx = cache.incr(f"lb:{service}:counter") % len(instances)
+    n = len(instances)
 
-    instance_label = f"{service}-{idx}"        # e.g. "light-0", "heavy-1"
-    cache.incr(f"metrics:instance:{instance_label}")
+    resp = None
+    chosen = None
+    latency = None
 
-    start = time.time()
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{target}/data")
-    latency = time.time() - start
+        for i in range(n):
+            idx = (start_idx + i) % n
+            url = instances[idx] + "/data"
+            try:
+                start = time.time()
+                resp = await client.get(url, timeout=2.0)
+                resp.raise_for_status()
+                latency = time.time() - start
+                chosen = idx
+                break
+            except (httpx.RequestError, httpx.HTTPStatusError):
+                continue
+
+    if resp is None:
+        cache.incr("metrics:status:500")
+        raise HTTPException(500, f"No available `{service}` instances")
+
+    instance_label = f"{service}-{chosen}"
+    cache.incr(f"metrics:instance:{instance_label}")
 
     # record service count
     cache.incr(f"metrics:service:{service}")
@@ -135,7 +152,7 @@ async def proxy(
     cache.incr(f"metrics:status:{resp.status_code}")
     # record latency sum/count
     cache.incr(f"metrics:latency:count:{service}")
-    cache.incrbyfloat(f"metrics:latency:sum:{service}", latency)
+    cache.incrbyfloat(f"metrics:latency:sum:{service}", latency or 0.0)
 
     return resp.json()
 
