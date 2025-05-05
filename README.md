@@ -30,19 +30,19 @@ sudo service redis-server start
 ### 2. Start Backend Services – PowerShell
 
 ```powershell
-cd ./server
-./start_servers.ps1
+cd .\server
+.\start_servers.ps1
 ```
 
 ### 3. Start Frontend – PowerShell
 
 ```powershell
-cd ./client
+cd .\client
 npm install
 npm start
 ```
 
-After running these steps, open your browser at `http://localhost:3000` to access the dashboard. Log in or register, then simulate traffic and inspect metrics.
+After running these steps, open your browser at `http://localhost:3000` to access the dashboard. Register and log in, then simulate traffic and inspect metrics.
 
 ---
 
