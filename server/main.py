@@ -8,6 +8,7 @@ import httpx
 from math import floor
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel, Field
+from fastapi.middleware.cors import CORSMiddleware
 import redis
 
 from auth import (
@@ -18,6 +19,13 @@ from auth import (
 )
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 cache = redis.Redis(
     host=os.getenv("REDIS_HOST", "localhost"),
@@ -59,6 +67,15 @@ def handle_request(db, key: str, plan: str, tokens_required: int = 1) -> bool:
     # plan metrics
     db.incr(f"metrics:plan:{plan}:{'allowed' if allowed else 'blocked'}")
     return allowed
+
+@app.on_event("startup")
+async def clear_user_data():
+    """
+    On every server startup, remove all user:* keys so that
+    previous registrations are forgotten and everyone must re-register.
+    """
+    for key in cache.scan_iter("user:*"):
+        cache.delete(key)
 
 @app.post("/register", status_code=201)
 async def register(username: str, password: str):
