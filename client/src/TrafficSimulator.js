@@ -1,33 +1,44 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApi } from "./api";
 
 export default function TrafficSimulator() {
   const { simulateTraffic } = useApi();
 
   const [total, setTotal] = useState(50);
-  const [serviceRatio, setServiceRatio] = useState(50);    // % heavy vs light (keep)
-  const [basicUsers, setBasicUsers] = useState(5);
-  const [premiumUsers, setPremiumUsers] = useState(5);
+  const [serviceRatio, setServiceRatio] = useState(50); // % heavy vs light
+  const [basicUsers, setBasicUsers] = useState("5");
+  const [premiumUsers, setPremiumUsers] = useState("5");
   const [mode, setMode] = useState("burst");
-  const [duration, setDuration] = useState(30);
-  const [status, setStatus] = useState("");
+  const [duration, setDuration] = useState("30");
+  const [status, setStatus] = useState({ text: "", type: "" });
 
   const run = async () => {
-    setStatus("Starting simulation…");
+    setStatus({ text: "Starting simulation…", type: "info" });
     try {
       await simulateTraffic({
-        total_requests:    total,
-        pct_heavy:         serviceRatio / 100,
-        num_basic_users:   basicUsers,
-        num_premium_users: premiumUsers,
+        total_requests: total,
+        pct_heavy: serviceRatio / 100,
+        num_basic_users: parseInt(basicUsers, 10) || 0,
+        num_premium_users: parseInt(premiumUsers, 10) || 0,
         mode,
-        duration_seconds:  duration,
+        duration_seconds: parseInt(duration, 10) || 0,
       });
-      setStatus("Simulation kicked off!");
+      setStatus({ text: "Simulation started!", type: "success" });
     } catch (e) {
-      setStatus("Error: " + e.message);
+      setStatus({ text: `Error: ${e.message}`, type: "error" });
     }
   };
+
+  // clear status after 5 seconds
+  useEffect(() => {
+    if (!status.text) return;
+    const timer = setTimeout(() => setStatus({ text: "", type: "" }), 5000);
+    return () => clearTimeout(timer);
+  }, [status]);
+
+  // helper to clean leading zeros and non-digits
+  const sanitizeNumber = (value) =>
+    value.replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "");
 
   return (
     <div className="space-y-4">
@@ -37,9 +48,11 @@ export default function TrafficSimulator() {
           Total Requests: {total}
         </label>
         <input
-          type="range" min="1" max="1000"
+          type="range"
+          min="1"
+          max="1000"
           value={total}
-          onChange={e => setTotal(+e.target.value)}
+          onChange={(e) => setTotal(+e.target.value)}
           className="w-full"
         />
       </div>
@@ -50,9 +63,11 @@ export default function TrafficSimulator() {
           Service Mix: Light {100 - serviceRatio}% – Heavy {serviceRatio}%
         </label>
         <input
-          type="range" min="0" max="100"
+          type="range"
+          min="0"
+          max="100"
           value={serviceRatio}
-          onChange={e => setServiceRatio(+e.target.value)}
+          onChange={(e) => setServiceRatio(+e.target.value)}
           className="w-full"
         />
       </div>
@@ -60,26 +75,30 @@ export default function TrafficSimulator() {
       {/* # Basic Users */}
       <div>
         <label className="block text-sm font-medium text-gray-700">
-          # Basic Users: {basicUsers}
+          Number of Basic Users (Capacity: 5 req/sec, Refill Rate: 1 req/sec)
         </label>
         <input
-          type="number" min="1" max="100"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={basicUsers}
-          onChange={e => setBasicUsers(+e.target.value)}
-          className="mt-1 block w-20 border-gray-300 rounded-md shadow-sm"
+          onChange={(e) => setBasicUsers(sanitizeNumber(e.target.value))}
+          className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm"
         />
       </div>
 
       {/* # Premium Users */}
       <div>
         <label className="block text-sm font-medium text-gray-700">
-          # Premium Users: {premiumUsers}
+          Number of Premium Users (Capacity: 20 req/sec, Refill Rate: 5 req/sec)
         </label>
         <input
-          type="number" min="1" max="100"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={premiumUsers}
-          onChange={e => setPremiumUsers(+e.target.value)}
-          className="mt-1 block w-20 border-gray-300 rounded-md shadow-sm"
+          onChange={(e) => setPremiumUsers(sanitizeNumber(e.target.value))}
+          className="mt-1 block w-24 border-gray-300 rounded-md shadow-sm"
         />
       </div>
 
@@ -96,10 +115,12 @@ export default function TrafficSimulator() {
         </select>
         {mode === "over_time" && (
           <input
-            type="number" min="1" max="300"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={duration}
-            onChange={(e) => setDuration(+e.target.value)}
-            className="w-20 border-gray-300 rounded-md shadow-sm"
+            onChange={(e) => setDuration(sanitizeNumber(e.target.value))}
+            className="w-24 border-gray-300 rounded-md shadow-sm"
             placeholder="secs"
           />
         )}
@@ -113,8 +134,18 @@ export default function TrafficSimulator() {
         Run Simulation
       </button>
 
-      {status && (
-        <p className="mt-2 text-sm text-gray-700">{status}</p>
+      {status.text && (
+        <p
+          className={`mt-2 text-sm ${
+            status.type === 'success'
+              ? 'text-green-600'
+              : status.type === 'error'
+              ? 'text-red-600'
+              : 'text-gray-700'
+          }`}
+        >
+          {status.text}
+        </p>
       )}
     </div>
   );

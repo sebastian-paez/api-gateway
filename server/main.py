@@ -32,7 +32,7 @@ services = {
 
 user_plans = {
     "basic":   {"capacity": 5,  "refill_rate": 1},
-    "premium": {"capacity": 10, "refill_rate": 1},
+    "premium": {"capacity": 20, "refill_rate": 5},
 }
 
 def handle_request(db, key: str, plan: str, tokens_required: int = 1) -> bool:
@@ -104,6 +104,9 @@ async def proxy(
     idx = cache.incr(f"lb:{service}:counter") % len(instances)
     target = instances[idx]
 
+    instance_label = f"{service}-{idx}"        # e.g. "light-0", "heavy-1"
+    cache.incr(f"metrics:instance:{instance_label}")
+
     start = time.time()
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{target}/data")
@@ -158,11 +161,19 @@ async def get_metrics():
         summ = float(cache.get(f"metrics:latency:sum:{svc}") or 0.0)
         latency_m[svc] = cnt > 0 and summ/cnt or 0.0
 
+    # per-instance counts
+    instances_m = {}
+    for service, urls in services.items():
+        for idx, _ in enumerate(urls):
+            label = f"{service}-{idx}"
+            instances_m[label] = int(cache.get(f"metrics:instance:{label}") or 0)
+
     return {
         "plans": plans,
         "services": services_m,
         "status": status_m,
         "latency": latency_m,
+        "instances" : instances_m
     }
 
 @app.post("/metrics/clear")
@@ -176,13 +187,16 @@ async def clear_metrics():
         cache.set(f"metrics:latency:sum:{svc}", 0.0)
     for code in ["200","429","400","500"]:
         cache.set(f"metrics:status:{code}", 0)
+    for svc, urls in services.items():
+        for idx in range(len(urls)):
+            cache.set(f"metrics:instance:{svc}-{idx}", 0)
     return {"message": "Metrics cleared"}
 
 class TrafficPayload(BaseModel):
     total_requests:   int   = Field(..., ge=1)
     pct_heavy:        float = Field(..., ge=0, le=1)
-    num_basic_users:  int   = Field(..., ge=1)
-    num_premium_users:int   = Field(..., ge=1)
+    num_basic_users:  int   = Field(..., ge=0)
+    num_premium_users:int   = Field(..., ge=0)
     mode:             str   = Field(..., pattern="^(burst|over_time)$")
     duration_seconds: int   = Field(0, ge=0)
 

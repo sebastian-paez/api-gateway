@@ -101,8 +101,8 @@ export default function Dashboard() {
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white shadow rounded-lg p-6 hover:shadow-lg transition">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">Requests by Service</h3>
-            <ServiceChart services={metrics.services} />
+            <h3 className="text-lg font-semibold text-gray-700 mb-4">Available Servers</h3>
+            <ServiceChart instances={metrics.instances} />
           </div>
 
           <div className="bg-white shadow rounded-lg p-6 hover:shadow-lg transition">

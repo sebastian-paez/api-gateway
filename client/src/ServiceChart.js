@@ -19,23 +19,27 @@ ChartJS.register(
   Legend
 );
 
-export default function ServiceChart({ services }) {
-  const labels = Object.keys(services);
+export default function ServiceChart({ instances }) {
+  // Guard against undefined
+  const dataObj = instances || {};
+  const labels = Object.keys(dataObj);
 
-  // Define a color map for each service
+  // Define color map per instance label
   const colorMap = {
-    light: "#3B82F6", // blue
-    heavy: "#EF4444", // red
+    "light-0": "#60A5FA",
+    "light-1": "#3B82F6",
+    "heavy-0": "#F87171",
+    "heavy-1": "#EF4444",
   };
 
   const data = {
     labels,
     datasets: [
       {
-        label: "# of Requests",
-        data: labels.map((l) => services[l]),
-        backgroundColor: labels.map((l) => colorMap[l] || "#9CA3AF"),
-        borderColor: labels.map((l) => colorMap[l] || "#9CA3AF"),
+        label: "# Requests",
+        data: labels.map((lbl) => dataObj[lbl] || 0),
+        backgroundColor: labels.map((lbl) => colorMap[lbl] || "#9CA3AF"),
+        borderColor: labels.map((lbl) => colorMap[lbl] || "#9CA3AF"),
         borderWidth: 1,
       },
     ],
@@ -45,20 +49,27 @@ export default function ServiceChart({ services }) {
     responsive: true,
     plugins: {
       legend: { display: false },
-      title: {
-        display: true,
-        text: 'Requests per Service',
-        font: { size: 16 }
-      },
-      tooltip: { enabled: true }
+      tooltip: { enabled: true },
     },
     scales: {
+      x: {
+        title: {
+          display: true,
+          text: "Servers",
+          font: { size: 14 }
+        }
+      },
       y: {
         beginAtZero: true,
-        ticks: { precision: 0 }
-      }
-    },
-  };
+        ticks: { precision: 0 },
+        title: {
+          display: true,
+          text: "Request Count",
+          font: { size: 14 }
+        },
+      },
+    }
+  }
 
   return <Bar data={data} options={options} />;
 }
