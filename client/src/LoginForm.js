@@ -37,7 +37,11 @@ export default function LoginForm() {
         setMode('login');
       }
     } catch (err) {
-      setError(err.message);
+      if (err.message == "Invalid credentials" || err.message == "User already exists") {
+        setError(err.message);
+      } else {
+        setError("API Gateway is down");
+      }
     }
   };
 

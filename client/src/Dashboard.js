@@ -10,14 +10,31 @@ export default function Dashboard() {
   const { getMetrics, clearMetrics } = useApi();
   const [metrics, setMetrics] = useState(null);
 
-  const fetchMetrics = useCallback(() => {
-    getMetrics().then(data => setMetrics(data)).catch(console.error);
-  }, [getMetrics]);
+  const fetchMetrics = useCallback(async () => {
+    try {
+      const data = await getMetrics();
+      setMetrics(data);
+      } catch (err) {
+      // if the backend is down, force a logout
+        console.error('Metrics failed, logging out:', err);
+        logout();
+        throw err;   // re‑throw so our interval also stops retrying
+      }
+  }, [getMetrics, logout]);
 
   useEffect(() => {
-    fetchMetrics();
-    const interval = setInterval(fetchMetrics, 5000);
-    return () => clearInterval(interval);
+    let alive = true;
+    const load = async () => {
+      try {
+        await fetchMetrics();
+      } catch {
+        // logout already called in fetchMetrics; stop looping
+        alive = false;
+      }
+    };
+    load();
+    const id = setInterval(() => { if (alive) load(); }, 5000);
+    return () => clearInterval(id);
   }, [fetchMetrics]);
 
   if (!metrics) {
